@@ -1,0 +1,60 @@
+#!/bin/sh
+
+ROOT=/tmp/testcode
+
+if [ -z "$1" ]
+then
+	echo "usage: $0 filename"
+	exit 1
+fi
+
+if [ ! -d $ROOT ]
+then
+	mkdir $ROOT
+fi
+
+cd $ROOT
+file=$1
+
+case "$file" in
+*.c)
+	cmd="gcc $file && ./a.out"
+	;;
+*.cpp)
+	cmd="g++ $file && ./a.out"
+	;;
+*.sh)
+	cmd="sh $file"
+	;;
+*.py)
+	cmd="python $file"
+	;;
+esac
+
+if [ ! -f $file ]
+then
+	echo "$cmd" > $file
+fi
+
+while true
+do
+	vim $file
+	cmd=`head -n 1 $file`
+	sed -i "1d" $file
+	eval "$cmd"
+
+	if [ `wc -w < $file` -eq 0 ]
+	then
+		echo "$cmd" > $file
+	else
+		sed -i "1i$cmd" $file
+	fi
+
+	echo -n 'Again? '
+	read again
+	if [ "$again" == "n" ]
+	then
+		exit
+	fi
+done
+

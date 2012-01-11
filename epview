@@ -1,0 +1,65 @@
+#!/usr/bin/env tclsh
+
+package require Expect
+
+log_user 0
+match_max -d 1000000
+
+set soar /home/jzxu/local/bin/soar
+set prompt "% "
+set plen [string length $prompt]
+
+switch [llength $argv] {
+	0       { puts "usage: $argv0 database episode ?printopts?" ; exit 1 }
+	1       { set path [lindex $argv 0] }
+	default { set printopts [lassign $argv path ep] }
+}
+
+proc cmd c {
+	global prompt plen
+	
+	send "[join $c { }]\r"
+	expect $prompt
+	set s [expr [string first "\n" $expect_out(buffer)] + 1]
+	set e "end-[expr $plen + 2]" ;# +2 for \r and \n
+	#puts "### $input $s $e >>[string range $expect_out(buffer) $s $e]<<"
+	return [string range $expect_out(buffer) $s $e]
+}
+
+proc parsewmes s {
+	set wmes {}
+	foreach line [split $s "\n"] {
+		lappend wmes [split [string trim $line "\r()"] " "]
+	}
+	return $wmes
+}
+
+spawn $soar
+expect $prompt
+cmd "w 0"
+cmd "epmem --set learning on"
+cmd "epmem --set trigger none"
+cmd "epmem --set path $path"
+
+foreach wme [parsewmes [cmd "print -t e1"]] {
+	if {[string equal [lindex $wme 1] "^result"]} {
+		set resid [lindex $wme 2]
+	}
+}
+
+if {! [info exists ep]} {
+	cmd "run 2"
+	puts [cmd "epmem -S"]
+	exit 0
+}
+
+cmd "sp \\{retrieve (state <s> ^epmem.command <c>) --> (<c> ^retrieve $ep)\\}"
+cmd "run 2"
+set result [cmd "print $resid"]
+
+if {[string first "no-memory" $result] >= 0} {
+	puts "no such episode"
+	exit 1
+}
+set retid [lindex [split [string trim $result "()\r\n\t "] " "] end]
+puts [cmd "print $printopts $retid"]

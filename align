@@ -1,0 +1,55 @@
+#!/usr/bin/env python
+
+"""
+Left-aligns columns of text, follows indentation of first line.
+"""
+from __future__ import print_function
+import sys
+
+def splitpos(line):
+	positions = []
+	fields = []
+	infield = False
+	for i in range(len(line)):
+		if not infield and not line[i].isspace():
+			positions.append(i)
+			infield = True
+		elif infield and line[i].isspace():
+			fields.append(line[positions[-1]:i])
+			infield = False
+	if infield:
+		fields.append(line[positions[-1]:])
+	
+	return fields, positions
+	
+if len(sys.argv) > 1 and sys.argv[1].isdigit(): 
+	n = int(sys.argv[1])
+else:
+	n = sys.maxsize
+
+fields = []
+fieldlen = {}
+rest = []
+indent = None
+for line in sys.stdin:
+	f, p = splitpos(line)
+	
+	if indent == None:
+		indent = line[:p[0]]
+	fields.append(f[:n])
+	if n < len(p):
+		rest.append(' ' + line[p[n]:])
+	else:
+		rest.append(line[p[-1]+len(f[-1]):])
+	
+	for i, x in enumerate(f[:n]):
+		if len(x) > fieldlen.get(i, 0):
+			fieldlen[i] = len(x)
+
+for i in range(len(fields)):
+	aligned = [('{:' + str(fieldlen[j]) + '}').format(f) for j, f in enumerate(fields[i])]
+	if rest[i].isspace():
+		s = ' '.join(aligned).rstrip()
+	else:
+		s = ' '.join(aligned)
+	print(indent, s, rest[i], sep = '', end = '')

@@ -1,0 +1,21 @@
+awk '
+BEGIN {
+	FS = "[ 	;,]+"
+}
+{
+	if (NF > maxfields) {
+		maxfields = NF
+	}
+	gsub(FS, ",", $0)
+	lines[NR] = $0
+}
+END {
+	print "@RELATION r"
+	for (i = 0; i < maxfields; i++) {
+		printf("@ATTRIBUTE x%d NUMERIC\n", i);
+	}
+	print "@DATA"
+	for (i = 0; i < NR; i++) {
+		print lines[i]
+	}
+}' $*

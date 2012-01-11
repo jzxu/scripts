@@ -1,0 +1,93 @@
+#!/usr/bin/env python2
+
+'''
+Calculates statistics on samples that take the form of tables of
+numbers. The input data is read from stdin and should be a series of
+tables of numbers with the same number of rows and columns, separated
+by blank lines or lines containing non-numbers. Will print a table
+whose (r,c) value is the result of a call of the specified function
+over all (r,c) values of the input tables.
+
+Argument spec:
+
+Arguments will take the form
+
+func1 [columns] func2 [columns]
+
+This will apply rfunc1 to all column numbers following it, rfunc2 to
+all column numbers following it, and so on. If the argument list ends
+with a function, that function will become the default and be used for
+all columns that were not explicitly assigned functions.
+
+If any column is not assigned a function and there is no default
+function, the values from the last input table will be printed.
+'''
+
+from __future__ import print_function
+import sys
+from string import atoi, atof
+from itertools import izip
+import numpy as np
+
+cf = {} # column # -> function
+currf = None
+data = {}
+floatcols = set() # columns that should be floats
+
+if len(sys.argv) < 2:
+	print('Usage: {} func [cols] ...'.format(sys.argv[0]), file=sys.stderr)
+	sys.exit(1)
+
+try:
+	for a in sys.argv[1:]:
+		if a.isdigit():
+			if not currf:
+				print('expecting function, got number', file=sys.stderr)
+				sys.exit(1)
+			cf[atoi(a)] = currf
+			isdefault = False
+		else:
+			currf = getattr(np, a, None)
+			if currf == None:
+				print('unknown function {}'.format(a))
+				sys.exit(1)
+			isdefault = True
+			
+except LookupError as e:
+	print(e, file=sys.stderr)
+	sys.exit(1)
+
+defaultf = currf if isdefault else None
+
+nr = 0
+maxrow = 0
+for line in sys.stdin:
+	if len(line.strip()) == 0: # blank
+		nr = 0
+		continue
+	
+	try:
+		vals = []
+		for i, field in enumerate(line.split()):
+			if '.' in field:
+				vals.append(atof(field))
+				floatcols.add(i)
+			else:
+				vals.append(atoi(field))
+				
+		data.setdefault(nr,[]).append(vals)
+		nr += 1
+		if nr > maxrow: maxrow = nr
+	except ValueError:
+		# this is a delimiter line
+		nr = 0
+	
+for r in range(maxrow):
+	for c, vals in enumerate(izip(*data[r])):
+		f = cf.get(c, defaultf)
+		if f == None:
+			print(vals[-1], end=' ')
+		else:
+			print(f(vals), end=' ')
+
+	print()

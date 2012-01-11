@@ -1,0 +1,76 @@
+awk '
+BEGIN {
+	nlocs = 0
+	query = "'"$1"'"
+	"pwd" | getline prefix
+	while (system("test -f " prefix "/tags") != 0 && length(prefix) > 0) {
+		sub("/[^/]*$", "", prefix)
+	}
+	tagfile = prefix "/tags"
+	if (system("test -f " tagfile) != 0) {
+		print "no tagfile" > "/dev/stderr"
+		exit 1
+	}
+	FS = "	"
+	while (getline < tagfile) {
+		m = 0
+		if ($1 ~ /::/) {
+			split($1, parts, "::")
+			if (parts[2] == query) {
+				m = 1
+			}
+		} else if ($1 == query) {
+			m = 1
+		}
+		if (m == 1) {
+			path = prefix "/" $2
+			if ($3 ~ /^[0-9]+$/) {
+				nlocs++
+				locs[nlocs] = path ":" $3
+			} else {
+				pattern = $3
+				for (i = 4; i <= NF; i++) {
+					pattern = pattern "	" $i
+					if (match(pattern, "[^\\\\]/;\"")) {
+						pattern = substr(pattern, 2, RSTART-1)
+						break
+					}
+				}
+				anchorbegin = 0
+				anchorend = 0
+				if (pattern ~ /^\^/) {
+					anchorbegin = 1
+					pattern = substr(pattern, 2)
+				}
+				if (pattern ~ /\$$/) {
+					anchorend = 1
+					pattern = substr(pattern, 1, length(pattern) - 1)
+				}
+				linenum = 0
+				while (getline line < path) {
+					i = index(line, pattern)
+					linenum++
+					if (anchorbegin && i != 1) {
+						continue
+					}
+					if (anchorend && i != length(line) - length(pattern) + 1) {
+						continue
+					}
+					nlocs++
+					locs[nlocs] = path ":" linenum
+					break
+				}
+			}
+		}
+	}
+	if (nlocs == 0) {
+		exit 1
+	} else if (nlocs == 1) {
+		exit system("plumb " locs[1])
+	} else {
+		for (i = 1; i <= nlocs; i++) {
+			print locs[i]
+		}
+		exit 0
+	}
+}'

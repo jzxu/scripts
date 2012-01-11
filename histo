@@ -1,0 +1,51 @@
+#!/bin/sh
+
+# Uses gnuplot to make a simple histogram
+
+nbins=5
+while [ -n "$*" ]
+do
+case "$1" in
+-n)
+	nbins=$2
+	shift 2
+	;;
+*)
+	input=$1
+	shift 1
+	;;
+esac
+done
+
+data=`mktemp`
+cmds=`mktemp`
+
+awk '
+BEGIN {
+	data  = "'"$data"'"
+	cmds  = "'"$cmds"'"
+	nbins = "'"$nbins"'"
+	
+	script = "set boxwidth %f\n" \
+	         "set key off\n" \
+	         "bin(x)=%f*floor(x/%f) + %f/2\n" \
+	         "plot \"%s\" using (bin($1)):(1.) smooth freq with boxes"
+}
+
+min == "" || $1 < min { min = $1 }
+max == "" || $1 > max { max = $1 }
+
+{ print >> data }
+
+END {
+	if ( min == max ) {
+		print "empty range" >/dev/stderr
+		exit 1
+	}
+	w = (max - min) / nbins
+	printf(script, w, w, w, w, data) >> cmds
+}' $input || exit 1
+
+gnuplot -p $cmds
+rm -f $data $cmds
+

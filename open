@@ -1,0 +1,39 @@
+#!/bin/sh
+
+if [ -z "$1" ]
+then
+	p=$(xclip -o)
+else
+	p="$1"
+fi
+
+path=$(echo "$p" | awk -F : '{print $1}')
+line=$(echo "$p" | awk -F : '{print $2}')
+
+if [ -f "$path" ]
+then
+	fullpath=$path
+else
+	for d in $SEARCH_DIRS
+	do
+		if [ -f "$d/$path" ]
+		then
+			fullpath="$d/$path"
+			break
+		fi
+	done
+fi
+
+if [ -f "$fullpath" ]
+then
+	if [ -n "$line" ]
+	then
+		fullpath="$fullpath:$line"
+	fi
+	plumb "$fullpath"
+	exit 0
+else
+	echo "file not found" >&2
+	exit 1
+fi
+

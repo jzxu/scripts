@@ -1,0 +1,157 @@
+#!/bin/sh
+
+if [ -n "$1" ]
+then
+	if [ -d "$1" ]
+	then
+		cd "$1"
+	else
+		echo 'no such directory' >&2
+		exit 1
+	fi
+fi
+
+awk -v ns="$HOME/acme/mnt" '
+BEGIN {
+	"pwd" | getline cwd
+	match(cwd, "[^/]+$")
+	name = (substr(cwd, RSTART, RLENGTH) "/")
+
+	# for some reason reading from the mounted /new/ctl causes 2 new windows to spawn, this hacks around it.
+	newctl = "9p read acme/new/ctl"
+	newctl | getline
+	close(newctl)
+	#getline < (ns "/new/ctl")
+	#close(ns "/new/ctl")
+
+	winid = $1
+	ctl = ns "/" winid "/ctl"
+	evt = ns "/" winid "/event"
+	dat = ns "/" winid "/data"
+	adr = ns "/" winid "/addr"
+	bod = ns "/" winid "/body"
+
+	print "name " cwd "/+dtree" >> ctl
+	fflush(ctl)
+	printf(lsdir(cwd, 0)) >> bod
+	fflush(bod)
+
+	while (getline < evt) {
+		readlines()
+		if ($1 ~ /^Mx/ && ($5 == "Del" || $5 == "Delete")) {
+			print("delete") >> ctl
+			exit
+		} else if ($1 ~ /^ML[0-9]+/ && length($5) > 0) {
+			nchr = 0 + substr($1, 3)
+			path = getpath(getlinenum(nchr))
+			system("B " path)
+		} else if ($1 ~ /^MX[0-9]+/ && length($5) > 0) {
+			nchr = 0 + substr($1, 3)
+			operate(nchr)
+		}
+	}
+}
+
+function operate(nchr,   i, linenum, path, expandstr, indentstr, f) {
+	# identify which line the user clicked
+	linenum = getlinenum(nchr)
+	path = getpath(linenum)
+
+	if (system("test -d " path) != 0) {
+		return
+	}
+	if (linenum == nlines || indents[linenum + 1] <= indents[linenum]) {
+		# expand this entry 
+		expandstr = lsdir(path, indents[linenum] + 1)
+		if (length(expandstr) > 0) {
+			printf("#%d", endaddr[linenum]) >> adr
+			fflush(adr)
+			printf("\n" expandstr) >> dat
+			fflush(dat)
+		}
+	} else {
+		# collapse this entry
+		for (i = linenum + 1; i <= nlines && indents[i] > indents[linenum]; i++) { }
+		#printf("DELETING %d %d %d %d\n", linenum, i, endaddr[linenum], endaddr[i-1])
+		printf("#%d,#%d", endaddr[linenum], endaddr[i-1]) >> adr
+		fflush(adr)
+		printf("\0") >> dat
+		fflush(dat)
+	}
+}
+
+function readlines(     i, a, line) {
+	i = 1
+	a = 0
+	while (getline line < bod > 0) {
+		lines[i] = line
+		match(line, "[^	]")
+		if (RSTART == 0) {
+			indents[i] = 0
+		} else {
+			indents[i] = RSTART - 1
+		}
+		endaddr[i] = a + length(line)
+		a += length(line) + 1
+		i++
+	}
+	close(bod)
+	nlines = i - 1
+}
+
+function getlinenum(nchr,   i, n) {
+	n = 0
+	for (i = 1; i <= nlines; i++) {
+		if (nchr <= endaddr[i]) {
+			n = i
+			break
+		}
+	}
+	if (n == 0) {
+		return nlines
+	}
+	return n
+}
+
+function lsdir(path, indent,    s, f, i, indentstr, ls) {
+	ls = "ls -pF " path
+	for (i = 1; i <= indent; i++) {
+		indentstr = indentstr "	"
+	}
+	while ( ls | getline f ) {
+		s = s indentstr f "\n"
+	}
+	close(ls)
+	return substr(s, 1, length(s) - 1)
+}
+
+function getpath(curr,     cline, cword, i, indent, c, p) {
+	if (curr < 1) {
+		return cwd
+	}
+	cline = lines[curr]
+	cword = cline
+	sub("^[ 	]*", "", cword)
+	sub("[ 	]*$", "", cword)
+	if (length(cword) == 0) {
+		# empty line
+		return getpath(curr - 1)
+	}
+	if (indents[curr] == 0) {
+		return cwd "/" cword
+	}
+
+	# find parent line with fewer indents
+	for (i = curr - 1; i >= 1; i--) {
+		if (indents[i] < indents[curr]) {
+			p = getpath(i)
+			if (p !~ "/$") {
+				p = p "/"
+			}
+			return p cword
+		}
+	}
+	return cwd "/" cword   # no parent
+}
+'
+

@@ -1,0 +1,176 @@
+#!/usr/bin/env python
+
+import sys
+from itertools import permutations, product, chain, combinations
+#from scipy import factorial
+
+def canonical_label(conds, labeldepth, verbose):
+	edgelist = {} # (id,val) -> attribute that connects them
+	for i, children in conds.items():
+		for a, v in children:
+			if v.startswith('<'):
+				edgelist.setdefault((i, v), []).append(a)
+			else:
+				edgelist.setdefault((i, 'constant'), []).append('{0}.{1}'.format(a,v))
+	
+	edgestrlist = dict((k, '(' + ','.join(sorted(v)) + ')') for k, v in edgelist.items())
+	
+	idlabels = label_ids_npath(conds, 2)
+	
+	# Bin the identifiers by their labels. Only identifiers with
+	# identical labels have to be permuted to achieve a canonical
+	# labeling.
+	idbins = {}
+	for id, label in idlabels.items():
+		idbins.setdefault(label, []).append(id)
+	
+	if verbose:
+		from scipy import factorial
+		
+		biggest_bin = []
+		norderings = 1
+		for bin in idbins.values():
+			if len(biggest_bin) < len(bin):
+				biggest_bin = bin
+			norderings *= factorial(len(bin))
+			
+		print >> sys.stderr, "Considering {0} vertex orderings".format(int(norderings))
+		print >> sys.stderr, "Biggest bin is {0}".format(biggest_bin)
+	
+	pgens = [ permutations(idbins[i]) for i in sorted(idbins.keys()) ]
+	
+	clabel = None
+	corder = None
+	# the cartesian product of all possible permutations of the binned
+	# identifiers gives us all orderings we have to consider
+	for bins in product(*pgens):
+		vorder = ['constant'] + list(chain(*bins))
+		l = ''.join(edgestrlist.get(x, '*') for x in product(vorder, repeat=2))
+		if clabel == None or clabel > l:
+			clabel = l
+			corder = vorder
+	
+	return clabel, corder
+
+def label_ids_npath(conds, depth):
+	allids = set()
+	incoming = {}
+	outgoing = {}
+	constlabels = {}
+	nlabels = [{}]
+	for i, children in conds.items():
+		nlabels[0][i] = ('','')
+		consts = []
+		for a, v in children:
+			incoming.setdefault(v, []).append((i, a))
+			if v.startswith('<'):
+				nlabels[0][v] = ('','')
+				outgoing.setdefault(i,[]).append((a,v))
+			else:
+				consts.append('{0}.{1}'.format(a,v))
+		constlabels[i] = ','.join(sorted(consts))
+	
+	
+	for n in range(1, depth+1):
+		nlabels.append({})
+		for i in nlabels[n-1]:
+			outlabels = sorted('{0}({1})'.format(a, nlabels[n-1][v][0]) for a, v in outgoing.get(i,[]))
+			inlabels = sorted('({0}){1}'.format(nlabels[n-1][p][1], a) for p, a in incoming.get(i,[]))
+			nlabels[n][i] = (','.join(outlabels) + '/' + constlabels.get(i,''), ','.join(inlabels))
+	
+	return dict((k, '{0}:{1}'.format(*v)) for k, v in nlabels[depth].items())
+	
+def label_ids_deep(conds):
+	labels = {}
+	
+	incoming = {}
+	for children in conds.values():
+		for a, v in children:
+			incoming.setdefault(v, []).append(a)
+			
+	for i in conds:
+		if i not in labels:
+			label_ids_rec(conds, i, incoming, labels)
+	return labels
+
+# Label each identifier with a string representation of the subtree
+# rooted at it. Since this is a recursive algorithm, it currently does
+# not support cycles.
+def label_ids_rec(conds, root, incoming, labels):
+	if root not in conds:
+		labels[root] = '{}'
+		return
+		
+	childlabels = []	
+	for a, v in conds[root]:
+		if v.startswith('<'):
+			if v not in labels:
+				label_ids_rec(conds, v, incoming, labels)
+			childlabels.append(a + labels[v])
+		else:
+			childlabels.append('{0}.{1}'.format(a, v))
+	
+	outpart = ','.join(sorted(childlabels))
+	inpart = ','.join(sorted(incoming.get(root,[])))
+	labels[root] = '{{{0}:{1}}}'.format(outpart, inpart)
+	
+if __name__ == '__main__':
+	from optparse import OptionParser
+	
+	usagestr = \
+'''usage: %prog [options] [input file]
+Compute a canonical label for a graph'''
+
+	options = OptionParser(usage=usagestr)
+	options.add_option('-v', dest='verbose', action='store_true', 
+	                   help='output some statistics while running')
+	options.add_option('-d', dest='depth', action='store', type='int',
+	                   help='label depth for vertices (canonical label is dependent on this value)')
+	options.add_option('-o', dest='print_order', action='store_true',
+	                   help='output canonical vertex order instead of label')
+
+	opts, args = options.parse_args()
+	
+	if len(args) == 0:
+		input = sys.stdin
+	else:
+		input = open(args[0])
+	
+	conds = {}
+
+	for line in input:
+		x = line.strip()
+		if x.startswith('sp'):
+			name = x.partition('{')[-1].strip()
+			print name
+		elif x.startswith('(') and x.endswith(')'):
+			toks = x[1:-1].split()
+			if toks[0] == 'state':
+				toks.pop(0)
+			
+			assert '^' in toks[1]
+			
+			if toks[1].startswith('-'):
+				attr = '-' + toks[1][2:]
+			else:
+				attr = toks[1][1:]
+				
+			if len(toks) == 4:
+				# there's a + at the end
+				assert toks[3] == '+'
+				attr += '+'
+
+			id = toks[0]
+			val = toks[2]
+			
+			conds.setdefault(id, []).append((attr, val))
+				
+		elif x.startswith('-->'):
+			label, order = canonical_label(conds, opts.depth, opts.verbose)
+			
+			if opts.print_order:
+				print ' '.join(order[1:])
+			else:
+				print label
+			
+			conds.clear()

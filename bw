@@ -1,0 +1,28 @@
+#!/usr/bin/python
+# Generate possible states of n-blocks world 
+
+import sys
+
+def gen_one_more(configs, b):
+	newconfigs = []
+	for c in configs:
+		newconfigs.extend(c[:i] + b + c[i:] for i in range(len(c)+1))
+		newconfigs.append('{0},{1}'.format(c,b))
+	return newconfigs
+
+def all_configs(blocks):
+	configs = [blocks[0]]
+	left = blocks[1:]
+	while len(left) > 0:
+		configs = gen_one_more(configs, left.pop(0))
+	
+	return configs
+
+if __name__ == '__main__':
+	if len(sys.argv) < 2:
+		print >> sys.stderr, 'specify number of blocks'
+		sys.exit(1)
+		
+	blocks = [ chr(x) for x in range(ord('A'), ord('A') + int(sys.argv[1])) ]
+	for c in all_configs(blocks):
+		print c
