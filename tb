@@ -14,10 +14,10 @@ Arguments will take the form
 
 func1 [columns] func2 [columns]
 
-This will apply rfunc1 to all column numbers following it, rfunc2 to
-all column numbers following it, and so on. If the argument list ends
-with a function, that function will become the default and be used for
-all columns that were not explicitly assigned functions.
+This will apply func1 to all column numbers following it, func2 to all
+column numbers following it, and so on. If the argument list ends with
+a function, that function will become the default and be used for all
+columns that were not explicitly assigned functions.
 
 If any column is not assigned a function and there is no default
 function, the values from the last input table will be printed.
@@ -61,6 +61,7 @@ defaultf = currf if isdefault else None
 
 nr = 0
 maxrow = 0
+ntables = 0
 for line in sys.stdin:
 	if len(line.strip()) == 0: # blank
 		nr = 0
@@ -76,11 +77,21 @@ for line in sys.stdin:
 				vals.append(atoi(field))
 				
 		data.setdefault(nr,[]).append(vals)
+		ntables = max(ntables, len(data[nr]))
 		nr += 1
 		if nr > maxrow: maxrow = nr
 	except ValueError:
 		# this is a delimiter line
 		nr = 0
+
+# if there's only one table, then treat each row as a separate table of
+# one row
+if ntables == 1:
+	newdata = []
+	for r in range(1, maxrow):
+		newdata.extend(data[r])
+	maxrow = 1
+	data = {0 : newdata}
 	
 for r in range(maxrow):
 	for c, vals in enumerate(izip(*data[r])):

@@ -3,11 +3,18 @@ BEGIN {
 	FS = "[ 	;,]+"
 }
 {
+	sub("^[ 	]+", "")
+	sub("[ 	]+$", "")
+}
+NF > 0 {
 	if (NF > maxfields) {
 		maxfields = NF
 	}
-	gsub(FS, ",", $0)
-	lines[NR] = $0
+	s = $1
+	for (i = 2; i <= NF; ++i) {
+		s = s "," $i
+	}
+	lines[NR] = s
 }
 END {
 	print "@RELATION r"
@@ -15,7 +22,7 @@ END {
 		printf("@ATTRIBUTE x%d NUMERIC\n", i);
 	}
 	print "@DATA"
-	for (i = 0; i < NR; i++) {
+	for (i = 1; i <= NR; i++) {
 		print lines[i]
 	}
 }' $*
