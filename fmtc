@@ -1,0 +1,33 @@
+#!/bin/sh
+
+# Format paragraphs of commments using either # or // prefixes with fmt.
+#
+# The script first strips out all leading comment characters, runs fmt
+# on the resulting paragraph, then reinserts the comment characters.
+
+awk '
+NR == 1 {
+	if ($1 == "#" || $1 == "//") {
+		cmt = $1
+	}
+	print
+}
+NR > 1 {
+	if ($1 == cmt) {
+		$1 = ""
+	}
+	print
+}' | fmt | awk '
+NR == 1 {
+	if ($1 == "#" || $1 == "//") {
+		cmt = $1
+	}
+	print
+}
+NR > 1 {
+	if (cmt != "" && $1 != cmt) {
+		printf("%s%s\n", cmt, $0)
+	} else {
+		print
+	}
+}'
