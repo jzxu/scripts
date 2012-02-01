@@ -18,37 +18,37 @@ file=$1
 
 case "$file" in
 *.c)
-	cmd="gcc $file && ./a.out"
+	hdr="/* gcc $file && ./a.out #*/"
 	;;
 *.cpp)
-	cmd="g++ $file && ./a.out"
+	hdr="// g++ $file && ./a.out"
 	;;
 *.sh)
-	cmd="sh $file"
+	hdr="#!/bin/sh"
 	;;
 *.py)
-	cmd="python $file"
+	hdr="#!/usr/bin/env python"
 	;;
 esac
 
 if [ ! -f $file ]
 then
-	echo "$cmd" > $file
+	echo "$hdr" > $file
 fi
 
 while true
 do
 	vim $file
-	cmd=`head -n 1 $file`
-	sed -i "1d" $file
+	cmd=`awk '{
+		if (substr($1, 1, 2) == "#!") {
+			print "sh"
+		} else {
+			$1 = ""
+			print $0
+		}
+		exit
+	}' $file`
 	eval "$cmd"
-
-	if [ `wc -w < $file` -eq 0 ]
-	then
-		echo "$cmd" > $file
-	else
-		sed -i "1i$cmd" $file
-	fi
 
 	echo -n 'Again? '
 	read again
