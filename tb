@@ -88,7 +88,7 @@ for line in sys.stdin:
 # one row
 if ntables == 1:
 	newdata = []
-	for r in range(1, maxrow):
+	for r in range(maxrow):
 		newdata.extend(data[r])
 	maxrow = 1
 	data = {0 : newdata}
