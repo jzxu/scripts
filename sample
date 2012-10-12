@@ -1,0 +1,39 @@
+#!/bin/sh
+
+# Use reservoir sampling to choose N lines from stdin
+
+case "$1" in
+"")
+	echo "usage $0 <sample size>" 1>&2
+	exit 1
+	;;
+*[!0-9])
+	echo "invalid sample size" 1>&2
+	exit 1
+	;;
+esac
+
+# random seed is seconds since epoch + nanoseconds
+SEED=`date +%s%N`
+
+exec awk -v n="$1" -v seed="$SEED" '
+BEGIN {
+	srand(seed)
+}
+{
+	if (NR <= n) {
+		r[NR] = $0
+	} else {
+		i = int(rand() * NR) + 1
+		if (i <= n)
+			r[i] = $0
+	}
+}
+END {
+	if (NR < n) {
+		n = NR
+	}
+	for (i = 1; i <= n; ++i) {
+		print r[i]
+	}
+}'
