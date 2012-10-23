@@ -1,0 +1,54 @@
+#!/bin/sh
+
+HANG=1
+if [ "$1" = "-h" ]
+then
+	HANG=0
+fi
+
+awk -v hang=$HANG '
+function print_par() {
+	nwords = split(par, words)
+	i = 1
+	while (i <= nwords) {
+		n = 0
+		if (i == 1) {
+			pre = prefix
+		} else {
+			pre = hangp
+		}
+		while (i <= nwords && n + length(pre words[i]) < 80) {
+			printf("%s%s", pre, words[i])
+			n += length(pre words[i++])
+			pre = " "
+		}
+		printf("\n")
+	}
+}
+
+{
+	indent = match($0, "[a-zA-Z]")
+	if (indent >= 1) {
+		newprefix = substr($0, 1, indent - 1)
+		line = substr($0, indent)
+		if (newprefix == hangp) {
+			par = par " " line
+		} else {
+			print_par()
+			prefix = newprefix
+			hangp = prefix
+			if (hang)
+				gsub("[^ \t]", " ", hangp)
+			par = line
+		}
+	} else {
+		print_par()
+		print $0
+		prefix = ""
+		hangp = ""
+		par = ""
+	}
+}
+END {
+	print_par()
+}'
