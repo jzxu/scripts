@@ -1,13 +1,28 @@
 #!/bin/sh
 
-# Uses gnuplot to make a simple histogram
+# Print an ascii histogram
 
-nbins=5
-while [ -n "$*" ]
+nbins=10
+len=72
+while [ "$#" -gt 0 ]
 do
 case "$1" in
 -n)
+	if [ -z "$2" ]
+	then
+		echo "specify number of bins" 2>&1
+		exit 1
+	fi
 	nbins=$2
+	shift 2
+	;;
+-l)
+	if [ -z "$2" ]
+	then
+		echo "specify length" 2>&1
+		exit 1
+	fi
+	len=$2
 	shift 2
 	;;
 *)
@@ -17,35 +32,53 @@ case "$1" in
 esac
 done
 
-data=`mktemp`
-cmds=`mktemp`
-
-awk '
-BEGIN {
-	data  = "'"$data"'"
-	cmds  = "'"$cmds"'"
-	nbins = "'"$nbins"'"
-	
-	script = "set boxwidth %f\n" \
-	         "set key off\n" \
-	         "bin(x)=%f*floor(x/%f) + %f/2\n" \
-	         "plot \"%s\" using (bin($1)):(1.) smooth freq with boxes"
+exec awk -v nbins="$nbins" -v len="$len" '
+function isnum(x) {
+	return (x + 0 == x)
 }
 
-min == "" || $1 < min { min = $1 }
-max == "" || $1 > max { max = $1 }
-
-{ print >> data }
-
-END {
-	if ( min == max ) {
-		print "empty range" >/dev/stderr
-		exit 1
+BEGIN { min=0; max=0; n=0; }
+{
+	for (i = 1; i <= NF; ++i) {
+		if (!isnum($i))
+			continue
+		
+		if (n == 0 || $i < min)
+			min = $i
+		if (n == 0 || $i > max)
+			max = $i
+		v[n++] = $i
 	}
-	w = (max - min) / nbins
-	printf(script, w, w, w, w, data) >> cmds
-}' $input || exit 1
-
-gnuplot -p $cmds
-rm -f $data $cmds
-
+}
+END {
+	if (n > 0) {
+		if (min == max) {
+			nbins = 1
+			bins[0] = n
+			maxbin = n
+		} else {
+			nbins = n < nbins ? n : nbins
+			binsize = (max - min) / nbins
+			maxbin=0
+			for (i = 0; i < n; ++i) {
+				b = (v[i] - min) / binsize
+				if (int(b) > 0 && b == int(b)) {
+					b--
+				}
+				if (++bins[int(b)] > maxbin) {
+					maxbin = bins[int(b)]
+				}
+			}
+		}
+		perhash = len / maxbin
+		printf("%5g\n", min)
+		bmax = min + binsize
+		for (i = 0; i < nbins; ++i) {
+			bar = sprintf("%*s%d", int(bins[i] * perhash), "/", bins[i])
+			gsub(" ", "=", bar)
+			printf("%5g |%s\n", bmax, bar)
+			bmax += binsize
+		}
+	}
+	printf ("\ntotal: %d\n", n)
+}' $*
