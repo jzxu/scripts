@@ -1,0 +1,17 @@
+#!/bin/sh
+
+if [ "$#" -lt 2 ]
+then
+	echo "usage: $0 <pat1> <pat2> <files>" 1>&2
+	exit 1
+fi
+
+pat1="$1"
+pat2="$2"
+
+shift 2
+exec awk -v pat1="$pat1" -v pat2="$pat2" '
+FNR == 1 { p=0 }
+p == 0 && match($0, pat1) { p=1; next }
+p == 1 && match($0, pat2) { p=0 }
+p == 1 { print }' $*
