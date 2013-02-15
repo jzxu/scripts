@@ -1,0 +1,7 @@
+#!/bin/sh
+
+# Similar to R's summary command
+awk '{
+	for (i = 1; i <= NF; ++i)
+		print $i
+}' | sort -g | awk '{v[NR]=$1; t+=$1} END {print v[1], v[int(NR*.05)], v[int(NR*.25)], v[int(NR*.5)], t/NR, v[int(NR*.75)],v[int(NR*.95)],  v[NR]}'
