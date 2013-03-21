@@ -40,10 +40,6 @@ BEGIN {
 	for (i = 1; i <= nranges; ++i) {
 		printf sep1
 		sep1 = " "
-		if (s[i] == e[i] && s[i] != "") {
-			printf $s[i]
-			continue
-		}
 		if (s[i] == "") {
 			start = 1
 		} else if (s[i] < 0) {
@@ -59,7 +55,9 @@ BEGIN {
 			end = min(e[i], NF)
 		}
 		sep2 = ""
-		if (start < end) {
+		if (start == end) {
+			printf $start
+		} else if (start < end) {
 			for (j = start; j <= end; ++j) {
 				printf (sep2 $j)
 				sep2 = " "

@@ -4,4 +4,14 @@
 awk '{
 	for (i = 1; i <= NF; ++i)
 		print $i
-}' | sort -g | awk '{v[NR]=$1; t+=$1} END {print v[1], v[int(NR*.05)], v[int(NR*.25)], v[int(NR*.5)], t/NR, v[int(NR*.75)],v[int(NR*.95)],  v[NR]}'
+}' $* | sort -g | awk '{v[NR]=$1; t+=$1} END {
+	min = v[1]
+	p5   = v[int(1 + (NR-1) * .05)]
+	q1   = v[int(1 + (NR-1) * .25)]
+	med  = v[int(1 + (NR-1) * .5)]
+	mean = t / NR
+	q3   = v[int(1 + (NR-1) * .75)]
+	p95  = v[int(1 + (NR-1) * .95)]
+	max  = v[NR]
+	print min, p5, q1, med, mean, q3, p95, max
+}'
