@@ -27,7 +27,21 @@ from __future__ import print_function
 import sys
 from string import atoi, atof
 from itertools import izip
-import numpy as np
+
+def mean(data):
+	return sum(data) / len(data)
+
+def median(data):
+	sdata = sorted(data)
+	return sdata[len(data) / 2]
+
+function_table = {
+	'sum'    : sum,
+	'mean'   : mean,
+	'median' : median,
+	'max'    : max,
+	'min'    : min,
+}
 
 cf = {} # column # -> function
 currf = None
@@ -47,7 +61,7 @@ try:
 			cf[atoi(a)] = currf
 			isdefault = False
 		else:
-			currf = getattr(np, a, None)
+			currf = function_table.get(a, None)
 			if currf == None:
 				print('unknown function {}'.format(a))
 				sys.exit(1)

@@ -1,3 +1,6 @@
+/*
+ Converts floats in hexadecimal string notation into decimal string notation.
+*/
 #include <stdio.h>
 #include <stdlib.h>
 #include <ctype.h>

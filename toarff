@@ -1,6 +1,7 @@
-awk '
+awk -v args="$*" '
 BEGIN {
 	FS = "[ 	;,]+"
+	nargs = split(args, a)
 }
 {
 	sub("^[ 	]+", "")
@@ -18,11 +19,15 @@ NF > 0 {
 }
 END {
 	print "@RELATION r"
-	for (i = 0; i < maxfields; i++) {
-		printf("@ATTRIBUTE x%d NUMERIC\n", i);
+	for (i = 1; i <= maxfields; i++) {
+		if (i <= nargs) {
+			printf("@ATTRIBUTE %s real\n", a[i]);
+		} else {
+			printf("@ATTRIBUTE x%d real\n", i);
+		}
 	}
 	print "@DATA"
 	for (i = 1; i <= NR; i++) {
 		print lines[i]
 	}
-}' $*
+}'
