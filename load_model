@@ -1,0 +1,24 @@
+#!/usr/bin/sh
+
+while true
+do
+	case "$1" in
+	-g) gdb=1; shift ;;
+	*)  break ;;
+	esac
+done
+
+if [ -z "$1" ]
+then
+	echo specify model
+	exit 1
+fi
+
+if [ "$gdb" = "1" ]
+then
+	export SOAR_HOME=/home/jzxu/svs_build/dbg_out
+	exec gdb --args python -m sml "svs use_models on" "svs add_model m em" "svs model.m.load $1"
+else
+	exec rlwrap python -m sml "svs use_models on" "svs add_model m em" "svs model.m.load $1"
+fi
+
