@@ -2,8 +2,11 @@
 
 # Similar to R's summary command
 awk '{
-	for (i = 1; i <= NF; ++i)
-		print $i
+	for (i = 1; i <= NF; ++i) {
+		if ($i ~ /[-+]?[0-9]*\.?[0-9]*([eE][-+]?[0-9]+)?/) {
+			print $i
+		}
+	}
 }' $* | sort -g | awk '{v[NR]=$1; t+=$1} END {
 	min = v[1]
 	p5   = v[int(1 + (NR-1) * .05)]
