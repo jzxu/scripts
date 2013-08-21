@@ -1,8 +1,7 @@
 #!/bin/bash
 
 stopped() {
-	stat=`ps -o pid,stat | grep $1 | awk '{print substr($2,1,1)}'`
-	[ "$stat" = T ]
+	ps -o pid,stat a | awk -v pid="$1" 'BEGIN{s=1} $1==pid && $2~/^T/{s=0;exit} END{exit(s)}'
 }
 
 make_queue() {
