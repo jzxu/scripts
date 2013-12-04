@@ -1,11 +1,4 @@
 #!/bin/sh
 
-exec awk '{
-	sep=""
-	for (i = 1; i <= NF; ++i) {
-		printf("%s%s", sep, $i)
-		sep=", "
-	}
-	printf("\n");
-}'
+exec awk -v OFS=, 'NF {$1=$1;print}' 
 

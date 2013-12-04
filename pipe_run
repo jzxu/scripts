@@ -1,0 +1,58 @@
+#!/usr/bin/python3
+
+import os, sys
+import subprocess as sub
+import select
+import signal
+
+def signal_handler(signum, frame):
+	global finish
+	finish = True
+
+if len(sys.argv) < 3:
+	print('usage: {} PIPE CMD'.format(sys.argv[0]))
+	sys.exit(1)
+
+signal.signal(signal.SIGHUP, signal_handler)
+signal.signal(signal.SIGCHLD, signal_handler)
+
+pipe_path = sys.argv[1]
+if not os.path.exists(pipe_path):
+	print('invalid pipe', file=sys.stderr)
+	sys.exit(1)
+	
+proc = sub.Popen(sys.argv[2], shell=True, stdin=sub.PIPE)
+
+finish = False
+while not finish:
+	try:
+		fd = os.open(pipe_path, os.O_RDONLY|os.O_NONBLOCK)
+		r = None
+		r, _, _ = select.select([fd], [], [], 1.0)
+		
+		if not r:
+			continue
+
+		for line in open(fd, 'r'):
+			if not proc.stdin.closed:
+				proc.stdin.write(line.encode())
+				proc.stdin.flush()
+			else:
+				print('closed')
+	
+	except InterruptedError:
+		continue
+	except KeyboardInterrupt:
+		proc.send_signal(signal.SIGINT)
+		finish = True
+	except:
+		raise
+
+print('at exit')
+exit_code = proc.poll()
+if exit_code is None:
+	proc.stdin.close()
+	proc.wait()
+
+sys.exit(exit_code)
+

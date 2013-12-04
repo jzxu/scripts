@@ -6,15 +6,4 @@ then
 	exit 1
 fi
 
-lines=$1
-shift
-
-exec awk -v lines="$lines" '
-BEGIN {
-	while (getline < lines) {
-		for (i = 1; i <= NF; ++i) {
-			pick[$i] = 1
-		}
-	}
-}
-pick[FNR] == 1 { print }' $*
+exec awk 'NR==FNR{use[$1]=1;next} use[FNR]' $* -

@@ -3,26 +3,30 @@
 
 import sys
 
-def gen_one_more(configs, b):
+def add_one(configs, b):
 	newconfigs = []
 	for c in configs:
-		newconfigs.extend(c[:i] + b + c[i:] for i in range(len(c)+1))
-		newconfigs.append('{0},{1}'.format(c,b))
+		newconfigs.extend('{}{}{}'.format(c[:i], b, c[i:]) for i in range(len(c)+1))
+		stacks = c.split(',')
+		for i in range(len(stacks)+1):
+			newconfigs.append(','.join(stacks[0:i] + [b] + stacks[i:]))
 	return newconfigs
 
 def all_configs(blocks):
+	if not blocks:
+		return []
+	
 	configs = [blocks[0]]
-	left = blocks[1:]
-	while len(left) > 0:
-		configs = gen_one_more(configs, left.pop(0))
+	for b in blocks[1:]:
+		configs = add_one(configs, b)
 	
 	return configs
 
 if __name__ == '__main__':
 	if len(sys.argv) < 2:
-		print >> sys.stderr, 'specify number of blocks'
+		print('specify number of blocks', file=sys.stderr)
 		sys.exit(1)
 		
 	blocks = [ chr(x) for x in range(ord('A'), ord('A') + int(sys.argv[1])) ]
 	for c in all_configs(blocks):
-		print c
+		print(c)

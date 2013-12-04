@@ -1,0 +1,83 @@
+#!/usr/bin/env python
+
+from __future__ import print_function
+import sys, os
+
+def median(a):
+	i = len(a) / 2
+	a.sort()
+	if len(a) % 2 == 0:
+		return (a[i-1] + a[i]) / 2.0
+	return a[i]
+
+def argmin(a):
+	best = 0
+	for i, v in enumerate(a):
+		if v < a[best]:
+			best = i
+	return float(best + 1)
+
+def argmax(a):
+	best = 0
+	for i, v in enumerate(a):
+		if v > a[best]:
+			best = i
+	return best + 1
+	
+def proc_file(p, funcs):
+	if p == '-':
+		file = sys.stdin
+	else:
+		try:
+			file = open(p, 'r')
+		except IOError:
+			print('cannot open "{}"'.format(p), file=sys.stderr)
+			return
+
+	for nline, line in enumerate(file):
+		vals = []
+		for nf, f in enumerate(line.split()):
+			try:
+				vals.append(float(f))
+			except ValueError:
+				print('non-float value at {}:{}'.format(nline+1,nf+1),file=sys.stderr)
+
+		if len(vals) == 0:
+			print()
+		else:
+			print(' '.join('{:.20}'.format(f(vals)) for f in funcs))
+
+all_stats = {
+	'min' : min,
+	'max' : max,
+	'median' : median,
+	'argmin' : argmin,
+	'argmax' : argmax,
+	'sum' : sum,
+}
+
+if __name__ == '__main__':
+	if len(sys.argv) < 2:
+		print('specify statistic', file=sys.stderr)
+		sys.exit(1)
+	
+	funcs = []
+	file_args = len(sys.argv)
+	for i, a in enumerate(sys.argv[1:]):
+		if a == '--':
+			file_args = i + 2
+			break
+		if a not in all_stats:
+			print('invalid statistic {}'.format(a), file=sys.stderr)
+			sys.exit(1)
+
+		funcs.append(all_stats[a])
+
+	paths = sys.argv[file_args:]
+	
+	if len(paths) == 0:
+		paths.append('-')
+
+	for p in paths:
+		proc_file(p, funcs)
+

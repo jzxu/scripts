@@ -1,0 +1,119 @@
+if [ "$1" == "-r" ]
+then
+	by_rows=1
+	shift
+else
+	by_rows=0
+fi
+
+F="$1"
+shift
+
+exec gawk -v args="$F" -v by_rows=$by_rows '
+
+function min(group,   i, val) {
+	val = v[1,group]
+	for (i = 2; i <= ndata[group]; ++i) {
+		if (v[i,group] < val) {
+			val = v[i,group]
+		}
+	}
+	return val
+}
+
+function argmin(group,   i, val) {
+	val = 1
+	for (i = 2; i <= ndata[group]; ++i) {
+		if (v[i,group] < v[val,group]) {
+			val = i
+		}
+	}
+	return val
+}
+
+function max(group,   i, val) {
+	val = v[1,group]
+	for (i = 2; i <= ndata[group]; ++i) {
+		if (v[i,group] > val) {
+			val = v[i,group]
+		}
+	}
+	return val
+}
+
+function argmax(group,   i, val) {
+	val = 1
+	for (i = 2; i <= ndata[group]; ++i) {
+		if (v[i,group] > v[val,group]) {
+			val = i
+		}
+	}
+	return val
+}
+
+function sum(group,   i, val) {
+	val = 0.0
+	for (i = 1; i <= ndata[group]; ++i) {
+		val += v[i,group]
+	}
+	return val
+}
+
+function mean(group) {
+	return sum(group) / ndata[group]
+}
+
+function error(msg) {
+	print msg |"cat >&2"
+	exit(1)
+}
+
+BEGIN {
+	n = split("min max mean argmin argmax", x)
+	for (i = 1; i <= n; ++i) {
+		known[x[i]] = 1
+	}
+	nstats = split(args, stats, ",")
+	if (nstats == 0) {
+		stats[1] = "mean"
+		nstats = 1
+	}
+
+	for (i = 1; i <= nstats; ++i) {
+		if (!(stats[i] in known)) {
+			error("unknown statistic " argv[i])
+		}
+	}
+}
+{
+	if (by_rows) {
+		for (i = 1; i <= NF; ++i) {
+			v[i,NR] = $i
+		}
+		ndata[NR] = NF
+	} else {
+		for (i = 1; i <= NF; ++i) {
+			v[NR,i] = $i
+			ndata[i] = NR
+		}
+		if (NF > ngroups) {
+			ngroups = NF
+		}
+	}
+}
+END {
+	if (by_rows) {
+		ngroups = NR
+	}
+
+	for (i = 1; i <= nstats; ++i) {
+		s = stats[i]
+		sep = ""
+		for (j = 1; j <= ngroups; ++j) {
+			printf("%s%s", sep, @s(j))
+			sep = " "
+		}
+		printf("\n")
+	}
+}
+' $*

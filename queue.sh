@@ -157,6 +157,9 @@ wait_queue() {
 					nrun=$((nrun-1))
 				fi
 				;;
+			*)
+				echo "WARNING: unknown event $event" 1>&2
+				;;
 			esac
 		done <"$fifo"
 	done

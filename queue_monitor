@@ -1,0 +1,46 @@
+
+check_queue() {
+	queue_dir="$1"
+	if [ ! -f "$queue_dir/running" -o ! -p "$queue_dir/fifo" ]
+	then
+		return
+	fi
+
+	running=`cat $queue_dir/running`
+	for pid in $running
+	do
+		status_file="$queue_dir/$pid/status"
+		if [ ! -f "$status_file" ]
+		then
+			continue
+		fi
+		stat=`awk '$7 == "exit" {stat=$8} END {print stat}' $status_file`
+		if [ -n "$stat" ]
+		then
+			# if the pid is still running after 3 seconds, then we're stuck
+			sleep 3
+			if grep -q "^$pid$" $queue_dir/running
+			then
+				echo "PID $pid is stuck (exited $stat), fixing"
+				echo "exit $pid $stat" >>$queue_dir/fifo
+			fi
+		fi
+	done
+}
+
+parent="$1"
+if [ ! -d "$parent" ]
+then
+	echo "specify valid parent directory"
+	exit 1
+fi
+
+while true
+do
+	for queue in `find "$parent" -type d -wholename '*/queue'`
+	do
+		check_queue $queue
+	done
+	sleep 1
+done
+
